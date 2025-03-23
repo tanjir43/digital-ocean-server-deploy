@@ -95,6 +95,10 @@
         dest: "{{ deploy_dir }}/releases/{{ timestamp }}/.env"
         state: link
       when: env_example.stat.exists
+
+    - name: Generate Laravel application key
+      shell: cd {{ deploy_dir }}/releases/{{ timestamp }} && php artisan key:generate --force
+      when: env_example.stat.exists
     
     - name: Create storage directory structure
       file:
