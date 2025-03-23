@@ -1,0 +1,22 @@
+---
+
+- name: Install Supervisor
+  apt:
+    name: supervisor
+    state: present
+
+- name: Ensure Supervisor is running
+  systemd:
+    name: supervisor
+    state: started
+    enabled: yes
+
+- name: Create Laravel queue worker configuration
+  template:
+    src: laravel-worker.conf.j2
+    dest: /etc/supervisor/conf.d/laravel-worker.conf
+    owner: root
+    group: root
+    mode: '0644'
+  when: setup_queue_workers | default(false) | bool
+  notify: Reload Supervisor

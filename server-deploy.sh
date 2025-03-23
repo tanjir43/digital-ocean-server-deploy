@@ -203,6 +203,7 @@ function select_services() {
     read -p "Install Redis? (y/n): " INSTALL_REDIS
     read -p "Install RabbitMQ? (y/n): " INSTALL_RABBITMQ
     read -p "Install Let's Encrypt SSL? (y/n): " INSTALL_SSL
+    read -p "Set up Laravel queue workers? (y/n): " SETUP_QUEUE_WORKERS
     
     # Save service selections
     echo "# Service selections" > "$CONFIG_DIR/services.cfg"
@@ -211,14 +212,16 @@ function select_services() {
     echo "INSTALL_REDIS=$INSTALL_REDIS" >> "$CONFIG_DIR/services.cfg"
     echo "INSTALL_RABBITMQ=$INSTALL_RABBITMQ" >> "$CONFIG_DIR/services.cfg"
     echo "INSTALL_SSL=$INSTALL_SSL" >> "$CONFIG_DIR/services.cfg"
-    
+    echo "SETUP_QUEUE_WORKERS=$SETUP_QUEUE_WORKERS" >> "$CONFIG_DIR/services.cfg"
+
     # Update Ansible variables
     echo "web_server: $WEB_SERVER" >> "$CONFIG_DIR/vars.yml"
     echo "php_version: $PHP_VERSION" >> "$CONFIG_DIR/vars.yml"
     echo "install_redis: $([ "$INSTALL_REDIS" == "y" ] && echo "true" || echo "false")" >> "$CONFIG_DIR/vars.yml"
     echo "install_rabbitmq: $([ "$INSTALL_RABBITMQ" == "y" ] && echo "true" || echo "false")" >> "$CONFIG_DIR/vars.yml"
     echo "install_ssl: $([ "$INSTALL_SSL" == "y" ] && echo "true" || echo "false")" >> "$CONFIG_DIR/vars.yml"
-    
+    echo "setup_queue_workers: $([ "$SETUP_QUEUE_WORKERS" == "y" ] && echo "true" || echo "false")" >> "$CONFIG_DIR/vars.yml"
+
     echo -e "${GREEN}Service selections saved.${NC}"
 }
 

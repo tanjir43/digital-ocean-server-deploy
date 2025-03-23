@@ -55,7 +55,11 @@
     - role: ssl
       when: install_ssl | bool
       tags: ssl
-  
+
+    - role: supervisor
+      when: setup_queue_workers | default(false) | bool
+      tags: supervisor
+    
   post_tasks:
     - name: Setup project directory
       file:
