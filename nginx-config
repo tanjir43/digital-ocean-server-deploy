@@ -135,6 +135,7 @@ function delete_config() {
 }
 
 # Setup SSL for a domain using Let's Encrypt
+# Setup SSL for a domain using Let's Encrypt
 function setup_ssl() {
     if [ -z "$1" ]; then
         echo -e "${RED}Error: Domain name is required.${NC}"
@@ -146,9 +147,13 @@ function setup_ssl() {
     echo -e "${YELLOW}Setting up SSL for $DOMAIN using Let's Encrypt...${NC}"
     
     read -p "Include www subdomain? (y/n): " INCLUDE_WWW
+    read -p "Email address for Let's Encrypt notifications (default: admin@$DOMAIN): " EMAIL
+    EMAIL=${EMAIL:-"admin@$DOMAIN"}
+    
+    echo -e "${YELLOW}Using email $EMAIL for Let's Encrypt notifications${NC}"
     
     ansible-playbook -i "$CONFIG_DIR/inventory/hosts" "$PLAYBOOKS_DIR/nginx-ssl.yml" \
-        --extra-vars "domain=$DOMAIN include_www=$INCLUDE_WWW"
+        --extra-vars "domain=$DOMAIN include_www=$INCLUDE_WWW certbot_email=$EMAIL"
     
     echo -e "${GREEN}SSL for $DOMAIN set up successfully.${NC}"
 }

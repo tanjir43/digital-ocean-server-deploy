@@ -1,0 +1,44 @@
+---
+# Playbook to set up SSL for a domain
+
+- name: Set up SSL for domain
+  hosts: servers
+  become: yes
+  vars:
+    include_www: "{{ include_www | default('y') }}"
+  
+  tasks:
+    - name: Check if Nginx configuration exists
+      stat:
+        path: /etc/nginx/sites-available/{{ domain }}.conf
+      register: config_exists
+    
+    - name: Fail if configuration doesn't exist
+      fail:
+        msg: "Nginx configuration for {{ domain }} does not exist!"
+      when: not config_exists.stat.exists
+    
+    - name: Install Certbot
+      apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+    
+    - name: Obtain SSL certificate
+      command: >
+        certbot --nginx 
+        -d {{ domain }} 
+        {% if include_www == 'y' %}-d www.{{ domain }}{% endif %} 
+        --non-interactive --agree-tos 
+        --redirect
+        --email {{ certbot_email | default('admin@example.com') }}
+      register: certbot_result
+    
+    - name: Set up auto-renewal
+      cron:
+        name: certbot-renewal
+        job: "certbot renew --quiet --deploy-hook 'systemctl reload nginx'"
+        hour: "3"
+        minute: "30"
+        weekday: "1"

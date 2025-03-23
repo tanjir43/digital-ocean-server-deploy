@@ -14,8 +14,19 @@
   register: cert_exists
 
 - name: Obtain SSL certificate
-  command: certbot --nginx -d {{ domain_name }} {% if include_www | default(false) %}-d www.{{ domain_name }}{% endif %} --email {{ certbot_email | default('admin@example.com') }} --agree-tos --non-interactive
+  command: >
+    certbot --nginx 
+    -d {{ domain_name }} 
+    {% if include_www | default(false) %}-d www.{{ domain_name }}{% endif %} 
+    --email {{ certbot_email | default('admin@example.com') }} 
+    --agree-tos 
+    --non-interactive
+    --redirect
+  register: certbot_result
   when: not cert_exists.stat.exists
+  failed_when: 
+    - certbot_result.rc != 0
+    - "'Certbot failed to authenticate some domains' not in certbot_result.stderr"
 
 - name: Set up auto-renewal
   cron:
