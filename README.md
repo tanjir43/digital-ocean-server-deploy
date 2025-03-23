@@ -45,6 +45,8 @@ This tool utilizes a combination of Bash scripts for user interaction and Ansibl
 └── env.j2                  # Environment file template
 
 ## Key Components
+
+
 ### 1. Shell Scripts
 #### server-deploy.sh
 The main entry point that:
@@ -65,6 +67,8 @@ Handles application deployment:
 * Installs dependencies
 * Sets proper permissions
 * Links environment files
+
+
 ### 2. Ansible Components
 #### Playbooks
 Orchestrate the server setup and management tasks:
@@ -129,12 +133,11 @@ Before submitting changes:
 3. Verify all scripts run without errors
 4. Test a full deployment cycle
 ## License
-MIT License
+
 ## Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.
 ## Initial Folder
 
-```
 server-deploy.sh             # Main entry script 
 nginx-config                 # Nginx configuration manager 
 playbooks/main.yml           # Main Ansible playbook
