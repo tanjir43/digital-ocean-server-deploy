@@ -1,0 +1,52 @@
+---
+# Nginx role tasks
+
+- name: Install Nginx
+  apt:
+    name: nginx
+    state: present
+
+- name: Enable and start Nginx service
+  systemd:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: Remove default Nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload Nginx
+
+- name: Create Nginx server block
+  template:
+    src: nginx-site.conf.j2
+    dest: /etc/nginx/sites-available/{{ domain_name }}.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload Nginx
+
+- name: Enable Nginx server block
+  file:
+    src: /etc/nginx/sites-available/{{ domain_name }}.conf
+    dest: /etc/nginx/sites-enabled/{{ domain_name }}.conf
+    state: link
+  notify: Reload Nginx
+
+- name: Set Nginx configuration
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload Nginx
+
+- name: Create document root
+  file:
+    path: "{{ doc_root }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: www-data
+    mode: '0755'

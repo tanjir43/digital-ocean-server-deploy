@@ -1,0 +1,80 @@
+---
+# Main playbook to orchestrate server setup
+
+- name: Setup Digital Ocean Server
+  hosts: servers
+  become: yes
+  vars_files:
+    - "../server-deploy-config/vars.yml"
+  
+  pre_tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+    
+    - name: Install common packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - python3-pip
+          - git
+          - unzip
+          - vim
+        state: present
+  
+  roles:
+    - role: common
+      tags: common
+    
+    - role: nginx
+      when: web_server == "nginx"
+      tags: web
+    
+    - role: apache
+      when: web_server == "apache"
+      tags: web
+    
+    - role: mysql
+      tags: database
+    
+    - role: php
+      tags: php
+    
+    - role: redis
+      when: install_redis | bool
+      tags: redis
+    
+    - role: rabbitmq
+      when: install_rabbitmq | bool
+      tags: rabbitmq
+    
+    - role: ssl
+      when: install_ssl | bool
+      tags: ssl
+  
+  post_tasks:
+    - name: Setup project directory
+      file:
+        path: "{{ doc_root }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: www-data
+        mode: '0755'
+    
+    - name: Create a test PHP file
+      copy:
+        content: |
+          <?php
+          phpinfo();
+        dest: "{{ doc_root }}/index.php"
+        owner: "{{ ansible_user }}"
+        group: www-data
+        mode: '0644'
+    
+    - name: Show success message
+      debug:
+        msg: "Server setup completed successfully! You can now access your server at http://{{ domain_name }}"

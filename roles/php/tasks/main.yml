@@ -1,0 +1,58 @@
+---
+# PHP role tasks
+
+- name: Add PPA for PHP
+  apt_repository:
+    repo: ppa:ondrej/php
+    state: present
+    update_cache: yes
+
+- name: Install PHP and modules
+  apt:
+    name:
+      - "php{{ php_version }}"
+      - "php{{ php_version }}-fpm"
+      - "php{{ php_version }}-cli"
+      - "php{{ php_version }}-common"
+      - "php{{ php_version }}-mysql"
+      - "php{{ php_version }}-mbstring"
+      - "php{{ php_version }}-xml"
+      - "php{{ php_version }}-zip"
+      - "php{{ php_version }}-curl"
+      - "php{{ php_version }}-gd"
+      - "php{{ php_version }}-json"
+      - "php{{ php_version }}-intl"
+      - "php{{ php_version }}-opcache"
+      - "php{{ php_version }}-bcmath"
+      - "php{{ php_version }}-soap"
+    state: present
+
+- name: Enable and start PHP-FPM service
+  systemd:
+    name: "php{{ php_version }}-fpm"
+    state: started
+    enabled: yes
+
+- name: Configure PHP
+  template:
+    src: php-custom.ini.j2
+    dest: "/etc/php/{{ php_version }}/fpm/conf.d/99-custom.ini"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart PHP-FPM
+
+- name: Configure PHP-FPM
+  template:
+    src: php-fpm.conf.j2
+    dest: "/etc/php/{{ php_version }}/fpm/pool.d/www.conf"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart PHP-FPM
+
+- name: Install Composer
+  shell: |
+    curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+  args:
+    creates: /usr/local/bin/composer

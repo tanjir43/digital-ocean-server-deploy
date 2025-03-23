@@ -1,0 +1,206 @@
+#!/bin/bash
+
+# nginx-config - Nginx Configuration Manager
+# This script simplifies Nginx server configuration management
+
+set -e
+
+# Colors for better output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Config directory
+CONFIG_DIR="$(pwd)/server-deploy-config"
+PLAYBOOKS_DIR="$(pwd)/playbooks"
+
+# Load server configuration
+if [ -f "$CONFIG_DIR/server.cfg" ]; then
+    source "$CONFIG_DIR/server.cfg"
+else
+    echo -e "${RED}Server configuration not found. Please run ./server-deploy.sh first.${NC}"
+    exit 1
+fi
+
+# Show usage information
+function show_usage() {
+    echo -e "${BLUE}Nginx Configuration Manager${NC}"
+    echo
+    echo "Usage: ./nginx-config <command> [options]"
+    echo
+    echo "Commands:"
+    echo "  list               List all available Nginx configurations"
+    echo "  create <domain>    Create a new Nginx site configuration"
+    echo "  enable <domain>    Enable an existing Nginx site"
+    echo "  disable <domain>   Disable an existing Nginx site"
+    echo "  delete <domain>    Delete an Nginx site configuration"
+    echo "  ssl <domain>       Set up SSL for a domain using Let's Encrypt"
+    echo "  reload             Reload Nginx configuration"
+    echo
+    echo "Examples:"
+    echo "  ./nginx-config create example.com"
+    echo "  ./nginx-config ssl example.com"
+    echo
+}
+
+# List all Nginx configurations
+function list_configs() {
+    echo -e "${YELLOW}Listing all Nginx configurations...${NC}"
+    
+    ansible-playbook -i "$CONFIG_DIR/inventory/hosts" "$PLAYBOOKS_DIR/nginx-list.yml"
+}
+
+# Create a new Nginx site configuration
+function create_config() {
+    if [ -z "$1" ]; then
+        echo -e "${RED}Error: Domain name is required.${NC}"
+        show_usage
+        exit 1
+    fi
+    
+    DOMAIN="$1"
+    echo -e "${YELLOW}Creating Nginx configuration for $DOMAIN...${NC}"
+    
+    # Collect configuration options
+    read -p "Document root path (default: /var/www/html/$DOMAIN): " DOC_ROOT
+    DOC_ROOT=${DOC_ROOT:-/var/www/html/$DOMAIN}
+    
+    read -p "PHP support? (y/n): " PHP_SUPPORT
+    read -p "Create as default server? (y/n): " DEFAULT_SERVER
+    
+    # Run Ansible playbook to create configuration
+    ansible-playbook -i "$CONFIG_DIR/inventory/hosts" "$PLAYBOOKS_DIR/nginx-create.yml" \
+        --extra-vars "domain=$DOMAIN doc_root=$DOC_ROOT php_support=$PHP_SUPPORT default_server=$DEFAULT_SERVER"
+    
+    echo -e "${GREEN}Nginx configuration for $DOMAIN created successfully.${NC}"
+}
+
+# Enable an existing Nginx site
+function enable_config() {
+    if [ -z "$1" ]; then
+        echo -e "${RED}Error: Domain name is required.${NC}"
+        show_usage
+        exit 1
+    fi
+    
+    DOMAIN="$1"
+    echo -e "${YELLOW}Enabling Nginx configuration for $DOMAIN...${NC}"
+    
+    ansible-playbook -i "$CONFIG_DIR/inventory/hosts" "$PLAYBOOKS_DIR/nginx-enable.yml" \
+        --extra-vars "domain=$DOMAIN"
+    
+    echo -e "${GREEN}Nginx configuration for $DOMAIN enabled successfully.${NC}"
+}
+
+# Disable an existing Nginx site
+function disable_config() {
+    if [ -z "$1" ]; then
+        echo -e "${RED}Error: Domain name is required.${NC}"
+        show_usage
+        exit 1
+    fi
+    
+    DOMAIN="$1"
+    echo -e "${YELLOW}Disabling Nginx configuration for $DOMAIN...${NC}"
+    
+    ansible-playbook -i "$CONFIG_DIR/inventory/hosts" "$PLAYBOOKS_DIR/nginx-disable.yml" \
+        --extra-vars "domain=$DOMAIN"
+    
+    echo -e "${GREEN}Nginx configuration for $DOMAIN disabled successfully.${NC}"
+}
+
+# Delete an Nginx site configuration
+function delete_config() {
+    if [ -z "$1" ]; then
+        echo -e "${RED}Error: Domain name is required.${NC}"
+        show_usage
+        exit 1
+    fi
+    
+    DOMAIN="$1"
+    echo -e "${YELLOW}Deleting Nginx configuration for $DOMAIN...${NC}"
+    
+    read -p "Are you sure you want to delete the configuration for $DOMAIN? (y/n): " CONFIRM
+    
+    if [ "$CONFIRM" == "y" ]; then
+        ansible-playbook -i "$CONFIG_DIR/inventory/hosts" "$PLAYBOOKS_DIR/nginx-delete.yml" \
+            --extra-vars "domain=$DOMAIN"
+        
+        echo -e "${GREEN}Nginx configuration for $DOMAIN deleted successfully.${NC}"
+    else
+        echo -e "${YELLOW}Delete operation cancelled.${NC}"
+    fi
+}
+
+# Setup SSL for a domain using Let's Encrypt
+function setup_ssl() {
+    if [ -z "$1" ]; then
+        echo -e "${RED}Error: Domain name is required.${NC}"
+        show_usage
+        exit 1
+    fi
+    
+    DOMAIN="$1"
+    echo -e "${YELLOW}Setting up SSL for $DOMAIN using Let's Encrypt...${NC}"
+    
+    read -p "Include www subdomain? (y/n): " INCLUDE_WWW
+    
+    ansible-playbook -i "$CONFIG_DIR/inventory/hosts" "$PLAYBOOKS_DIR/nginx-ssl.yml" \
+        --extra-vars "domain=$DOMAIN include_www=$INCLUDE_WWW"
+    
+    echo -e "${GREEN}SSL for $DOMAIN set up successfully.${NC}"
+}
+
+# Reload Nginx configuration
+function reload_nginx() {
+    echo -e "${YELLOW}Reloading Nginx configuration...${NC}"
+    
+    ansible-playbook -i "$CONFIG_DIR/inventory/hosts" "$PLAYBOOKS_DIR/nginx-reload.yml"
+    
+    echo -e "${GREEN}Nginx configuration reloaded successfully.${NC}"
+}
+
+# Main function
+function main() {
+    if [ $# -lt 1 ]; then
+        show_usage
+        exit 1
+    fi
+    
+    COMMAND="$1"
+    shift
+    
+    case "$COMMAND" in
+        list)
+            list_configs
+            ;;
+        create)
+            create_config "$1"
+            ;;
+        enable)
+            enable_config "$1"
+            ;;
+        disable)
+            disable_config "$1"
+            ;;
+        delete)
+            delete_config "$1"
+            ;;
+        ssl)
+            setup_ssl "$1"
+            ;;
+        reload)
+            reload_nginx
+            ;;
+        *)
+            echo -e "${RED}Unknown command: $COMMAND${NC}"
+            show_usage
+            exit 1
+            ;;
+    esac
+}
+
+# Run the main function
+main "$@"

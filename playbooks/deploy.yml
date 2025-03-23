@@ -1,0 +1,146 @@
+---
+# Deployment playbook to deploy applications
+
+- name: Deploy application
+  hosts: servers
+  become: yes
+  vars_files:
+    - "../server-deploy-config/vars.yml"
+  vars:
+    timestamp: "{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
+    deploy_dir: "{{ doc_root }}"
+    project_path: "{{ project_path | default('./') }}"
+  
+  tasks:
+    - name: Ensure deployment directory exists
+      file:
+        path: "{{ deploy_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: www-data
+        mode: '0755'
+    
+    - name: Create releases directory
+      file:
+        path: "{{ deploy_dir }}/releases"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: www-data
+        mode: '0755'
+    
+    - name: Create shared directory
+      file:
+        path: "{{ deploy_dir }}/shared"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: www-data
+        mode: '0755'
+    
+    - name: Create release directory
+      file:
+        path: "{{ deploy_dir }}/releases/{{ timestamp }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: www-data
+        mode: '0755'
+    
+    - name: Synchronize project files
+      synchronize:
+        src: "{{ project_path }}/"
+        dest: "{{ deploy_dir }}/releases/{{ timestamp }}"
+        recursive: yes
+        delete: yes
+        rsync_opts:
+          - "--exclude=.git"
+          - "--exclude=.gitignore"
+          - "--exclude=node_modules"
+      delegate_to: localhost
+    
+    - name: Check if composer.json exists
+      stat:
+        path: "{{ deploy_dir }}/releases/{{ timestamp }}/composer.json"
+      register: composer_json
+    
+    - name: Install Composer dependencies
+      shell: cd {{ deploy_dir }}/releases/{{ timestamp }} && composer install --no-dev --optimize-autoloader
+      when: composer_json.stat.exists
+    
+    - name: Check if package.json exists
+      stat:
+        path: "{{ deploy_dir }}/releases/{{ timestamp }}/package.json"
+      register: package_json
+    
+    - name: Install NPM dependencies
+      shell: cd {{ deploy_dir }}/releases/{{ timestamp }} && npm install --production
+      when: package_json.stat.exists
+    
+    - name: Check if .env.example exists
+      stat:
+        path: "{{ deploy_dir }}/releases/{{ timestamp }}/.env.example"
+      register: env_example
+    
+    - name: Create .env file if not exists
+      template:
+        src: "../templates/env.j2"
+        dest: "{{ deploy_dir }}/shared/.env"
+        owner: "{{ ansible_user }}"
+        group: www-data
+        mode: '0644'
+        force: no
+      when: env_example.stat.exists
+    
+    - name: Link .env file
+      file:
+        src: "{{ deploy_dir }}/shared/.env"
+        dest: "{{ deploy_dir }}/releases/{{ timestamp }}/.env"
+        state: link
+      when: env_example.stat.exists
+    
+    - name: Create storage directory if not exists
+      file:
+        path: "{{ deploy_dir }}/shared/storage"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: www-data
+        mode: '0775'
+        recurse: yes
+      when: env_example.stat.exists  # Assuming this is a Laravel project
+    
+    - name: Check if current symlink exists
+      stat:
+        path: "{{ deploy_dir }}/current"
+      register: current_symlink
+    
+    - name: Backup current symlink if exists
+      command: mv {{ deploy_dir }}/current {{ deploy_dir }}/previous
+      when: current_symlink.stat.exists and current_symlink.stat.islnk
+      ignore_errors: yes
+    
+    - name: Create symlink to latest release
+      file:
+        src: "{{ deploy_dir }}/releases/{{ timestamp }}"
+        dest: "{{ deploy_dir }}/current"
+        state: link
+    
+    - name: Set proper permissions
+      file:
+        path: "{{ deploy_dir }}/current"
+        owner: "{{ ansible_user }}"
+        group: www-data
+        recurse: yes
+    
+    - name: Restart PHP-FPM if using PHP
+      service:
+        name: "php{{ php_version }}-fpm"
+        state: restarted
+      when: php_version is defined
+    
+    - name: Restart web server
+      service:
+        name: "{{ web_server }}"
+        state: restarted
+      when: web_server in ['nginx', 'apache2']
+    
+    - name: Show deployment success message
+      debug:
+        msg: "Application has been successfully deployed to {{ domain_name }}"

@@ -1,0 +1,21 @@
+[mysqld]
+# Basic Settings
+max_connections = 100
+default_storage_engine = InnoDB
+key_buffer_size = 16M
+thread_stack = 192K
+thread_cache_size = 8
+
+# InnoDB Settings
+innodb_buffer_pool_size = 128M
+innodb_log_file_size = 32M
+innodb_flush_log_at_trx_commit = 2
+
+# Logging
+slow_query_log = 1
+slow_query_log_file = /var/log/mysql/mysql-slow.log
+long_query_time = 2
+
+# Cache
+query_cache_size = 16M
+query_cache_limit = 1M

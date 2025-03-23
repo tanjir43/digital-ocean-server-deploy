@@ -1,0 +1,55 @@
+---
+# MySQL role tasks
+
+- name: Install MySQL
+  apt:
+    name: 
+      - mysql-server
+      - mysql-client
+      - python3-mysqldb
+    state: present
+
+- name: Enable and start MySQL service
+  systemd:
+    name: mysql
+    state: started
+    enabled: yes
+
+- name: Set MySQL root password
+  mysql_user:
+    name: root
+    password: "{{ mysql_root_password }}"
+    host_all: yes
+    state: present
+
+- name: Create MySQL databases
+  mysql_db:
+    name: "{{ item.name }}"
+    encoding: "{{ item.encoding | default('utf8mb4') }}"
+    collation: "{{ item.collation | default('utf8mb4_unicode_ci') }}"
+    state: present
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  with_items: "{{ mysql_databases | default([]) }}"
+  when: mysql_databases is defined
+
+- name: Create MySQL users
+  mysql_user:
+    name: "{{ item.name }}"
+    password: "{{ item.password }}"
+    priv: "{{ item.priv | default('*.*:USAGE') }}"
+    host: "{{ item.host | default('localhost') }}"
+    state: present
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  with_items: "{{ mysql_users | default([]) }}"
+  when: mysql_users is defined
+
+- name: Configure MySQL for better performance
+  template:
+    src: mysql-custom.cnf.j2
+    dest: /etc/mysql/conf.d/custom.cnf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart MySQL

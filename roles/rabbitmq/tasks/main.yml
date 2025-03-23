@@ -1,0 +1,53 @@
+---
+# RabbitMQ role tasks
+
+- name: Add RabbitMQ signing key
+  apt_key:
+    url: https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc
+    state: present
+
+- name: Add Erlang repository
+  apt_repository:
+    repo: deb https://packages.erlang-solutions.com/ubuntu focal contrib
+    state: present
+    update_cache: yes
+
+- name: Install Erlang
+  apt:
+    name: erlang
+    state: present
+
+- name: Add RabbitMQ repository
+  apt_repository:
+    repo: deb https://dl.bintray.com/rabbitmq/debian focal main
+    state: present
+    update_cache: yes
+
+- name: Install RabbitMQ server
+  apt:
+    name: rabbitmq-server
+    state: present
+
+- name: Enable and start RabbitMQ service
+  systemd:
+    name: rabbitmq-server
+    state: started
+    enabled: yes
+
+- name: Enable RabbitMQ management plugin
+  command: rabbitmq-plugins enable rabbitmq_management
+  register: rabbitmq_plugin
+  changed_when: "'already enabled' not in rabbitmq_plugin.stdout"
+  notify: Restart RabbitMQ
+
+- name: Create RabbitMQ user
+  community.rabbitmq.rabbitmq_user:
+    user: "{{ rabbitmq_user | default('admin') }}"
+    password: "{{ rabbitmq_password | default('admin') }}"
+    vhost: /
+    configure_priv: .*
+    read_priv: .*
+    write_priv: .*
+    tags: administrator
+    state: present
+  when: rabbitmq_user is defined or rabbitmq_password is defined
