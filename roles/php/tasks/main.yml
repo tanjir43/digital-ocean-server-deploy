@@ -25,6 +25,8 @@
       - "php{{ php_version }}-opcache"
       - "php{{ php_version }}-bcmath"
       - "php{{ php_version }}-soap"
+      - "php{{ php_version }}-fileinfo"
+      - "php{{ php_version }}-tokenizer"
     state: present
 
 - name: Enable and start PHP-FPM service

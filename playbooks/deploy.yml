@@ -96,16 +96,46 @@
         state: link
       when: env_example.stat.exists
     
-    - name: Create storage directory if not exists
+    - name: Create storage directory structure
       file:
-        path: "{{ deploy_dir }}/shared/storage"
+        path: "{{ deploy_dir }}/shared/storage/{{ item }}"
         state: directory
         owner: "{{ ansible_user }}"
         group: www-data
         mode: '0775'
-        recurse: yes
-      when: env_example.stat.exists  # Assuming this is a Laravel project
-    
+      with_items:
+        - app
+        - app/public
+        - framework
+        - framework/cache
+        - framework/sessions
+        - framework/views
+        - logs
+      when: env_example.stat.exists
+
+    - name: Link storage directory
+      file:
+        src: "{{ deploy_dir }}/shared/storage"
+        dest: "{{ deploy_dir }}/releases/{{ timestamp }}/storage"
+        state: link
+      when: env_example.stat.exists
+
+    - name: Create public storage link
+      shell: cd {{ deploy_dir }}/releases/{{ timestamp }} && php artisan storage:link
+      when: env_example.stat.exists
+
+    - name: Generate application key
+      shell: cd {{ deploy_dir }}/releases/{{ timestamp }} && php artisan key:generate --force
+      when: env_example.stat.exists
+
+    - name: Run database migrations
+      shell: cd {{ deploy_dir }}/releases/{{ timestamp }} && php artisan migrate --force
+      when: env_example.stat.exists
+
+    - name: Cache configuration
+      shell: cd {{ deploy_dir }}/releases/{{ timestamp }} && php artisan config:cache
+      when: env_example.stat.exists
+        
     - name: Check if current symlink exists
       stat:
         path: "{{ deploy_dir }}/current"
