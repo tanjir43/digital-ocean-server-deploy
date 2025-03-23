@@ -162,6 +162,18 @@
         owner: "{{ ansible_user }}"
         group: www-data
         recurse: yes
+
+    - name: Set up Laravel scheduler
+      cron:
+        name: "Laravel scheduler"
+        minute: "*"
+        hour: "*"
+        day: "*"
+        month: "*"
+        weekday: "*"
+        job: "cd {{ deploy_dir }}/current && php artisan schedule:run >> /dev/null 2>&1"
+        user: "{{ ansible_user }}"
+      when: env_example.stat.exists
     
     - name: Restart PHP-FPM if using PHP
       service:
